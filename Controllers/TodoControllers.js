@@ -1,5 +1,6 @@
 const Todo = require('../Models/Todo');
-const sendEmail = require('../Config/email');
+const User = require('../Models/User');
+const { sendEmail, generateTodoListEmailHTML } = require('../Config/email');
 //  get all the todos in the account
 async function getTodo(req,res){
     try{
@@ -97,17 +98,33 @@ async function sendTodosToEmail(req, res) {
         if (!userId || !userEmail) {
             return res.status(400).json({ message: 'User ID and email required' });
         }
+        
+        // Get user details for personalization
+        const user = await User.findById(userId);
+        const username = user ? user.username : 'User';
+        
         const todos = await Todo.find({ userId });
         if (!todos.length) {
             return res.status(400).json({ message: 'No todos to send.' });
         }
-        // Format todos as a readable list
-        const todoList = todos.map((todo, idx) => `${idx + 1}. ${todo.title} - ${todo.description} (${todo.date} ${todo.time})${todo.done ? ' [Done]' : ''}`).join('\n');
-        const emailBody = `Here are your todos:\n\n${todoList}`;
-        await sendEmail(userEmail, 'Your Todo List', emailBody);
+        
+        // Get website URL from environment variable (optional)
+        const websiteUrl = process.env.WEBSITE_URL || null;
+        
+        // Generate HTML email template with website link
+        const htmlContent = generateTodoListEmailHTML(todos, username, websiteUrl);
+        
+        // Generate plain text fallback with website link
+        const textContent = todos.map((todo, idx) => 
+            `${idx + 1}. ${todo.title} - ${todo.description || 'No description'} (${todo.date || 'No date'} ${todo.time || 'No time'})${todo.done ? ' [Done]' : ' [Pending]'}`
+        ).join('\n');
+        const websiteLinkText = websiteUrl ? `\n\nVisit our website to manage your todos: ${websiteUrl}` : '';
+        const plainTextBody = `Here are your todos:\n\n${textContent}${websiteLinkText}`;
+        
+        await sendEmail(userEmail, 'Your Todo List - Todo App', plainTextBody, htmlContent);
         res.status(200).json({ message: 'Todos sent to your email!' });
     } catch (error) {
-        console.log('Error sending todos to email:', error);
+        console.error('Error sending todos to email:', error);
         res.status(500).json({ message: 'Failed to send todos to email.' });
     }
 }

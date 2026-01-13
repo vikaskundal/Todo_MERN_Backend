@@ -1,14 +1,19 @@
 //for the jwt middleware
 // generating the jsonwebtoken
-const jwt =require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const secretKey= process.env.jwtKey
+const secretKey = process.env.jwtKey;
 
+if (!secretKey) {
+    console.error('WARNING: jwtKey is not defined in environment variables');
+}
 
 // generating the jwt
-const generateToken=(payload)=>{
-    
-    return jwt.sign(payload,secretKey,{expiresIn:'1h'});
+const generateToken = (payload) => {
+    if (!secretKey) {
+        throw new Error('JWT secret key is not configured');
+    }
+    return jwt.sign(payload, secretKey, { expiresIn: '1h' });
 }
 
 const verifyToken = (req, res, next) => {
