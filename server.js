@@ -25,9 +25,13 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
+const HOST = process.env.HOST || '0.0.0.0'; // Bind to 0.0.0.0 for Render.com and other cloud platforms
 
-app.listen(PORT, 'localhost', () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`Server is running on http://${HOST}:${PORT}`);
+    if (HOST === '0.0.0.0') {
+        console.log(`Server is accessible on all network interfaces`);
+    }
 }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
         console.error(`Port ${PORT} is already in use. Please use a different port.`);
