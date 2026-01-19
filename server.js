@@ -15,6 +15,17 @@ connectedDB().catch(err => {
 
 app.use(express.json());
 app.use(cors());
+
+// Request logging middleware (for debugging) - placed after body parser
+app.use((req, res, next) => {
+  console.log(`\n📥 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    const bodyCopy = { ...req.body };
+    if (bodyCopy.password) bodyCopy.password = '***';
+    console.log('Request Body:', JSON.stringify(bodyCopy, null, 2));
+  }
+  next();
+});
 app.use('/auth', authRoutes);
 app.use('/api', todoRoutes);
 

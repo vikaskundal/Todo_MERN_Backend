@@ -102,31 +102,49 @@ async function verifyOtpAndCreateUser(req, res) {
 // Login (now with email)
 async function logIn(req, res) {
   try {
+    console.log('\n🔐 LOGIN ATTEMPT');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request body:', { email: req.body.email, password: req.body.password ? '***' : 'missing' });
+    
     const { email, password } = req.body;
     
     // Validation
     if (!email || !password) {
+      console.log('❌ Validation failed: Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' });
     }
     if (!emailRegex.test(email)) {
+      console.log('❌ Validation failed: Invalid email format');
       return res.status(400).json({ message: 'Invalid email format' });
     }
+    
+    console.log('✅ Validation passed, searching for user...');
     
     // Check user by email
     const user = await User.findOne({ email });
     if (!user) {
+      console.log(`❌ User not found: ${email}`);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
+    
+    console.log(`✅ User found: ${user.email} (ID: ${user._id})`);
+    console.log('Comparing password...');
     
     const ispasswordValid = await bcrypt.compare(password, user.password);
     if (!ispasswordValid) {
+      console.log('❌ Password mismatch');
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
+    console.log('✅ Password valid, generating token...');
     const token = generateToken({ userId: user._id, username: user.username, email: user.email });
+    console.log('✅ Login successful! Token generated');
+    console.log('Token preview:', token.substring(0, 50) + '...\n');
+    
     res.status(200).json({ data: token });
   } catch (error) {
-    console.error('login error:', error.message);
+    console.error('❌ LOGIN ERROR:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Unable to login. Try again.' });
   }
 }
