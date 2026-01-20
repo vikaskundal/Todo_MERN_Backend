@@ -71,7 +71,7 @@ app.post('/test', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 const HOST = process.env.HOST || '0.0.0.0'; // Bind to 0.0.0.0 for Render.com and other cloud platforms
 
 app.listen(PORT, HOST, () => {
