@@ -11,67 +11,135 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // API for SignUp (Step 1: send OTP)
 async function signUp(req, res) {
   try {
+    console.log('\n📝 SIGNUP ATTEMPT');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request body:', { 
+      username: req.body.username ? req.body.username : 'MISSING',
+      email: req.body.email ? req.body.email : 'MISSING',
+      password: req.body.password ? '***' : 'MISSING'
+    });
+    
     const { username, email, password } = req.body;
     
     // Validation
     if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Username, email, and password are required' });
+      console.log('❌ Validation failed: Missing required fields');
+      console.log('   Username:', username ? '✓' : '✗ MISSING');
+      console.log('   Email:', email ? '✓' : '✗ MISSING');
+      console.log('   Password:', password ? '✓' : '✗ MISSING');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username, email, and password are required' 
+      });
     }
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Invalid email format' });
+      console.log('❌ Validation failed: Invalid email format');
+      console.log('   Email provided:', email);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email format' 
+      });
     }
     if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+      console.log('❌ Validation failed: Password too short');
+      console.log('   Password length:', password.length);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Password must be at least 6 characters long' 
+      });
     }
     
+    console.log('✅ Validation passed, checking for existing user...');
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      console.log('❌ User already exists:', email);
+      return res.status(400).json({ 
+        success: false,
+        message: 'User already exists with this email' 
+      });
     }
+    
+    console.log('✅ User does not exist, generating OTP...');
     
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('OTP generated:', otp);
     setOTP(email, otp, username, password);
     
     // Send OTP to email with HTML template
     try {
+      console.log('Sending OTP email to:', email);
       const htmlContent = generateOTPEmailHTML(otp, 'signup');
       const textContent = `Your OTP for Todo App Signup is: ${otp}. This code will expire in 5 minutes.`;
       await sendEmail(email, 'Your OTP for Todo App Signup', textContent, htmlContent);
-      res.status(200).json({ message: 'OTP sent to email. Please verify to complete signup.' });
+      console.log('✅ OTP email sent successfully\n');
+      res.status(200).json({ 
+        success: true,
+        message: 'OTP sent to email. Please verify to complete signup.',
+        email: email // Return email so frontend knows which email to verify
+      });
     } catch (emailError) {
-      console.error('Email sending error:', emailError.message);
+      console.error('❌ Email sending error:', emailError.message);
+      console.error('Error stack:', emailError.stack);
       clearOTP(email);
-      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email configuration.' });
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to send OTP email. Please check your email configuration.' 
+      });
     }
   } catch (error) {
-    console.error('signup error:', error.message);
-    res.status(500).json({ message: 'Signup failed. Please try again.' });
+    console.error('❌ SIGNUP ERROR:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: 'Signup failed. Please try again.' 
+    });
   }
 }
 
 // API for OTP Verification (Step 2: create user)
 async function verifyOtpAndCreateUser(req, res) {
   try {
+    console.log('\n🔐 OTP VERIFICATION ATTEMPT');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request body:', { email: req.body.email, otp: req.body.otp ? '***' : 'MISSING' });
+    
     const { email, otp } = req.body;
     
     // Validation
     if (!email || !otp) {
-      return res.status(400).json({ message: 'Email and OTP are required' });
+      console.log('❌ Validation failed: Missing email or OTP');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and OTP are required' 
+      });
     }
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Invalid email format' });
+      console.log('❌ Validation failed: Invalid email format');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email format' 
+      });
     }
     
     // Verify OTP
+    console.log('Verifying OTP...');
     if (!verifyOTP(email, otp)) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+      console.log('❌ Invalid or expired OTP');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired OTP' 
+      });
     }
     
     // Get stored user data
     const otpData = getOTPData(email);
     if (!otpData) {
-      return res.status(400).json({ message: 'OTP data not found or expired' });
+      console.log('❌ OTP data not found');
+      return res.status(400).json({ 
+        success: false,
+        message: 'OTP data not found or expired' 
+      });
     }
     
     const { username, password } = otpData;
@@ -79,9 +147,15 @@ async function verifyOtpAndCreateUser(req, res) {
     // Check if user already exists (double check)
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('❌ User already exists');
       clearOTP(email);
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'User already exists with this email' 
+      });
     }
+    
+    console.log('✅ OTP verified, creating user...');
     
     // Create user
     const hashedpassword = await bcrypt.hash(password, 12);
@@ -92,10 +166,31 @@ async function verifyOtpAndCreateUser(req, res) {
     clearOTP(email);
     
     const token = generateToken({ userId: newUser._id, username: newUser.username, email: newUser.email });
-    res.status(201).json({ data: token });
+    
+    console.log('✅ User created successfully!');
+    console.log('User ID:', newUser._id);
+    console.log('Token generated\n');
+    
+    // Return token and user data for frontend
+    res.status(201).json({ 
+      success: true,
+      message: 'User created successfully',
+      data: {
+        token: token,
+        user: {
+          id: newUser._id,
+          username: newUser.username,
+          email: newUser.email
+        }
+      }
+    });
   } catch (error) {
-    console.error('verify otp error:', error.message);
-    res.status(500).json({ message: 'OTP verification failed. Please try again.' });
+    console.error('❌ OTP VERIFICATION ERROR:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: 'OTP verification failed. Please try again.' 
+    });
   }
 }
 
@@ -111,11 +206,17 @@ async function logIn(req, res) {
     // Validation
     if (!email || !password) {
       console.log('❌ Validation failed: Missing email or password');
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and password are required' 
+      });
     }
     if (!emailRegex.test(email)) {
       console.log('❌ Validation failed: Invalid email format');
-      return res.status(400).json({ message: 'Invalid email format' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email format' 
+      });
     }
     
     console.log('✅ Validation passed, searching for user...');
@@ -124,7 +225,10 @@ async function logIn(req, res) {
     const user = await User.findOne({ email });
     if (!user) {
       console.log(`❌ User not found: ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
     
     console.log(`✅ User found: ${user.email} (ID: ${user._id})`);
@@ -133,7 +237,10 @@ async function logIn(req, res) {
     const ispasswordValid = await bcrypt.compare(password, user.password);
     if (!ispasswordValid) {
       console.log('❌ Password mismatch');
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
     
     console.log('✅ Password valid, generating token...');
@@ -141,11 +248,26 @@ async function logIn(req, res) {
     console.log('✅ Login successful! Token generated');
     console.log('Token preview:', token.substring(0, 50) + '...\n');
     
-    res.status(200).json({ data: token });
+    // Return token and user data for frontend
+    res.status(200).json({ 
+      success: true,
+      message: 'Login successful',
+      data: {
+        token: token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email
+        }
+      }
+    });
   } catch (error) {
     console.error('❌ LOGIN ERROR:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ message: 'Unable to login. Try again.' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Unable to login. Try again.' 
+    });
   }
 }
 

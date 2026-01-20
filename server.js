@@ -14,7 +14,26 @@ connectedDB().catch(err => {
 });
 
 app.use(express.json());
-app.use(cors());
+
+// Enhanced CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins for development (you can restrict this in production)
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Request logging middleware (for debugging) - placed after body parser
 app.use((req, res, next) => {
@@ -35,7 +54,24 @@ app.get('/', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 8000;
+// Test endpoint to verify requests are reaching the server
+app.post('/test', (req, res) => {
+    console.log('\n🧪 TEST ENDPOINT HIT');
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
+    res.json({
+        success: true,
+        message: 'Test endpoint is working',
+        received: {
+            body: req.body,
+            method: req.method,
+            path: req.path,
+            timestamp: new Date().toISOString()
+        }
+    });
+});
+
+const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0'; // Bind to 0.0.0.0 for Render.com and other cloud platforms
 
 app.listen(PORT, HOST, () => {
